@@ -141,215 +141,239 @@
     </div>
 
     <script>
-        const phoneInput = document.getElementById('phoneNumber');
-        const templatesList = document.getElementById('templatesList');
-        const feedback = document.getElementById('feedback');
-        const senderSelector = document.getElementById('senderSelector');
-        
-        // PWA INSTALL PROMPT VARIABLES
-        let deferredPrompt; 
-        const installBtnContainer = document.getElementById('installButtonContainer');
+    // =======================================================
+    // 1. KOD PENGESANAN BROWSER & REDIRECTION LOGIC (Di atas sekali)
+    // =======================================================
+    (function() {
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const isTelegramInApp = /Telegram/i.test(ua);
+        const isChrome = /Chrome/i.test(ua) && !/Edge/i.test(ua); 
 
-        // =======================================================
-        // PWA INSTALL LOGIC
-        // =======================================================
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            showInstallButton(); 
-        });
-
-        function showInstallButton() {
-            if (installBtnContainer && deferredPrompt) {
-                installBtnContainer.style.display = 'block';
-            }
-        }
-
-        function installApp() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        showFeedback("Aplikasi sedang dipasang...", "green");
-                    } else {
-                        showFeedback("Pemasangan dibatalkan.", "red");
-                    }
-                    deferredPrompt = null;
-                    installBtnContainer.style.display = 'none'; 
-                });
-            }
-        }
-
-        // =======================================================
-        // LOCAL STORAGE & TEMPLATE FUNCTIONS
-        // =======================================================
-        
-        function getTemplates() {
-            const templatesJson = localStorage.getItem('wa_snippets');
-            return templatesJson ? JSON.parse(templatesJson) : [];
-        }
-
-        function saveTemplates(templates) {
-            localStorage.setItem('wa_snippets', JSON.stringify(templates));
-            renderTemplates();
-        }
-        
-        function saveTemplate() {
-            const text = document.getElementById('newTemplateText').value.trim();
-            if (text === "") {
-                showFeedback("Sila masukkan teks templat.", "red");
-                return;
-            }
+        // Jika Telegram In-App Browser dikesan
+        if (isTelegramInApp && !isChrome) {
             
-            const templates = getTemplates();
-            templates.push(text);
-            saveTemplates(templates);
-            document.getElementById('newTemplateText').value = '';
-            showFeedback("Templat berjaya disimpan!");
-        }
-
-        function deleteTemplate(index) {
-            if (confirm("Adakah anda pasti mahu padam templat ini?")) {
-                const templates = getTemplates();
-                templates.splice(index, 1);
-                saveTemplates(templates);
-                showFeedback("Templat dipadam.");
-            }
-        }
-
-        // =======================================================
-        // MULTI SENDER LOGIC (BARU)
-        // =======================================================
-        
-        function getSenders() {
-            const sendersJson = localStorage.getItem('wa_senders');
-            // Jika tiada, pulangkan array default untuk pengguna mudah faham
-            return sendersJson ? JSON.parse(sendersJson) : [{name: 'Pilih Nombor Pengirim', number: ''}];
-        }
-
-        function saveSenders(senders) {
-            localStorage.setItem('wa_senders', JSON.stringify(senders));
-            renderSenders();
-        }
-
-        function saveSender() {
-            const name = document.getElementById('newSenderName').value.trim();
-            const number = document.getElementById('newSenderNumber').value.trim();
-            
-            if (name === "" || number === "") {
-                showFeedback("Sila masukkan Nama dan Nombor Pengirim.", "red");
-                return;
-            }
-
-            const senders = getSenders();
-            senders.push({ name: name, number: number });
-            saveSenders(senders);
-            
-            document.getElementById('newSenderName').value = '';
-            document.getElementById('newSenderNumber').value = '';
-            showFeedback(`Nombor ${name} berjaya ditambah!`);
-        }
-
-        function renderSenders() {
-            const senders = getSenders();
-            senderSelector.innerHTML = '';
-            
-            // Tambah pilihan default
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = '--- Pilih Nombor ---';
-            senderSelector.appendChild(defaultOption);
-
-            senders.forEach(sender => {
-                if (sender.number !== '') {
-                    const option = document.createElement('option');
-                    option.value = sender.number;
-                    option.textContent = `${sender.name} (${sender.number})`;
-                    senderSelector.appendChild(option);
-                }
-            });
-        }
-
-
-        // =======================================================
-        // UI RENDERING & ACTION FUNCTIONS
-        // =======================================================
-
-        function renderTemplates() {
-            const templates = getTemplates();
-            templatesList.innerHTML = '';
-            
-            if (templates.length === 0) {
-                templatesList.innerHTML = '<p style="color: #888; text-align: center;">Tiada templat ditemui.</p>';
-                return;
-            }
-
-            templates.forEach((text, index) => {
-                const item = document.createElement('div');
-                item.className = 'template-item';
-                
-                const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
-                item.innerHTML = `
-                    <div class="template-text" title="${text}">${displayText}</div>
-                    <div class="template-actions">
-                        <button class="btn btn-copy" onclick="copyText('${encodeURIComponent(text)}')">Copy</button>
-                        <button class="btn btn-whatsapp" onclick="sendWhatsApp('${encodeURIComponent(text)}')">WA</button>
-                        <button class="btn" style="background: #dc3545; color: white;" onclick="deleteTemplate(${index})">X</button>
-                    </div>
-                `;
-                templatesList.appendChild(item);
-            });
-        }
-        
-        function showFeedback(message, color = "green") {
-            feedback.style.display = 'block';
-            feedback.textContent = message;
-            feedback.style.backgroundColor = color;
+            // Beri sedikit kelewatan (delay) agar alert tidak mengganggu loading
             setTimeout(() => {
-                feedback.style.display = 'none';
-            }, 3000);
+                if (confirm("Untuk memasang aplikasi ini ke Skrin Utama, sila buka di pelayar Chrome. Tekan OK untuk beralih.")) {
+                    // Cuba buka semula URL dalam browser native
+                    window.location.href = window.location.href; 
+                } else {
+                    alert("Pemasangan aplikasi PWA mungkin tidak berfungsi dalam Pelayar Dalam Aplikasi Telegram.");
+                }
+            }, 1500); // 1.5 saat delay
         }
+    })();
 
-        // Fungsi Salin (menggunakan Clipboard API)
-        function copyText(encodedText) {
-            const text = decodeURIComponent(encodedText);
-            navigator.clipboard.writeText(text).then(() => {
-                showFeedback("Teks berjaya disalin!");
-            }).catch(err => {
-                console.error('Gagal menyalin:", err);
-                showFeedback("Gagal menyalin teks. Sila cuba lagi.", "red");
+    // =======================================================
+    // 2. KEKALKAN SEMUA FUNGSI ASAL DI BAWAH INI
+    // =======================================================
+
+    const phoneInput = document.getElementById('phoneNumber');
+    const templatesList = document.getElementById('templatesList');
+    const feedback = document.getElementById('feedback');
+    const senderSelector = document.getElementById('senderSelector');
+    
+    // PWA INSTALL PROMPT VARIABLES
+    let deferredPrompt; 
+    const installBtnContainer = document.getElementById('installButtonContainer');
+
+    // =======================================================
+    // PWA INSTALL LOGIC
+    // =======================================================
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        showInstallButton(); 
+    });
+
+    function showInstallButton() {
+        if (installBtnContainer && deferredPrompt) {
+            installBtnContainer.style.display = 'block';
+        }
+    }
+
+    function installApp() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    showFeedback("Aplikasi sedang dipasang...", "green");
+                } else {
+                    showFeedback("Pemasangan dibatalkan.", "red");
+                }
+                deferredPrompt = null;
+                installBtnContainer.style.display = 'none'; 
             });
         }
+    }
 
-        // Fungsi Hantar WhatsApp
-        function sendWhatsApp(encodedText) {
-            const customerNumber = phoneInput.value.trim();
-            const senderNumber = senderSelector.value.trim(); // Dapatkan nombor pengirim yang dipilih
-            
-            if (customerNumber === "") {
-                showFeedback("Sila masukkan nombor telefon pelanggan.", "red");
-                return;
-            }
-            
-            // Logik: Guna nombor pengirim yang dipilih HANYA jika nombor pelanggan kosong
-            // PENTING: Untuk wa.me, ia sentiasa BUKA CHAT DENGAN NOMBOR YANG DISEBUT DALAM URL.
-            // Oleh itu, kita hanya buka chat dengan customerNumber. 
-            // Nombor senderNumber hanya digunakan jika anda mahu logik yang berbeza.
-            
-            const text = decodeURIComponent(encodedText);
-            
-            const waUrl = `https://wa.me/${customerNumber}?text=${encodeURIComponent(text)}`;
-            
-            window.open(waUrl, '_blank');
-            showFeedback("Membuka WhatsApp...");
+    // =======================================================
+    // LOCAL STORAGE & TEMPLATE FUNCTIONS
+    // =======================================================
+    
+    function getTemplates() {
+        const templatesJson = localStorage.getItem('wa_snippets');
+        return templatesJson ? JSON.parse(templatesJson) : [];
+    }
+
+    function saveTemplates(templates) {
+        localStorage.setItem('wa_snippets', JSON.stringify(templates));
+        renderTemplates();
+    }
+    
+    function saveTemplate() {
+        const text = document.getElementById('newTemplateText').value.trim();
+        if (text === "") {
+            showFeedback("Sila masukkan teks templat.", "red");
+            return;
+        }
+        
+        const templates = getTemplates();
+        templates.push(text);
+        saveTemplates(templates);
+        document.getElementById('newTemplateText').value = '';
+        showFeedback("Templat berjaya disimpan!");
+    }
+
+    function deleteTemplate(index) {
+        if (confirm("Adakah anda pasti mahu padam templat ini?")) {
+            const templates = getTemplates();
+            templates.splice(index, 1);
+            saveTemplates(templates);
+            showFeedback("Templat dipadam.");
+        }
+    }
+
+    // =======================================================
+    // MULTI SENDER LOGIC
+    // =======================================================
+    
+    function getSenders() {
+        const sendersJson = localStorage.getItem('wa_senders');
+        // Jika tiada, pulangkan array default untuk pengguna mudah faham
+        return sendersJson ? JSON.parse(sendersJson) : [{name: 'Pilih Nombor Pengirim', number: ''}];
+    }
+
+    function saveSenders(senders) {
+        localStorage.setItem('wa_senders', JSON.stringify(senders));
+        renderSenders();
+    }
+
+    function saveSender() {
+        const name = document.getElementById('newSenderName').value.trim();
+        const number = document.getElementById('newSenderNumber').value.trim();
+        
+        if (name === "" || number === "") {
+            showFeedback("Sila masukkan Nama dan Nombor Pengirim.", "red");
+            return;
         }
 
-        // Muatkan templat dan senarai pengirim apabila page dimuatkan
-        document.addEventListener('DOMContentLoaded', () => {
-             renderTemplates();
-             renderSenders(); // BARU: Muatkan senarai pengirim
+        const senders = getSenders();
+        senders.push({ name: name, number: number });
+        saveSenders(senders);
+        
+        document.getElementById('newSenderName').value = '';
+        document.getElementById('newSenderNumber').value = '';
+        showFeedback(`Nombor ${name} berjaya ditambah!`);
+    }
+
+    function renderSenders() {
+        const senders = getSenders();
+        senderSelector.innerHTML = '';
+        
+        // Tambah pilihan default
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '--- Pilih Nombor ---';
+        senderSelector.appendChild(defaultOption);
+
+        senders.forEach(sender => {
+            if (sender.number !== '') {
+                const option = document.createElement('option');
+                option.value = sender.number;
+                option.textContent = `${sender.name} (${sender.number})`;
+                senderSelector.appendChild(option);
+            }
         });
-    </script>
+    }
+
+
+    // =======================================================
+    // UI RENDERING & ACTION FUNCTIONS
+    // =======================================================
+
+    function renderTemplates() {
+        const templates = getTemplates();
+        templatesList.innerHTML = '';
+        
+        if (templates.length === 0) {
+            templatesList.innerHTML = '<p style="color: #888; text-align: center;">Tiada templat ditemui.</p>';
+            return;
+        }
+
+        templates.forEach((text, index) => {
+            const item = document.createElement('div');
+            item.className = 'template-item';
+            
+            const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
+            item.innerHTML = `
+                <div class="template-text" title="${text}">${displayText}</div>
+                <div class="template-actions">
+                    <button class="btn btn-copy" onclick="copyText('${encodeURIComponent(text)}')">Copy</button>
+                    <button class="btn btn-whatsapp" onclick="sendWhatsApp('${encodeURIComponent(text)}')">WA</button>
+                    <button class="btn" style="background: #dc3545; color: white;" onclick="deleteTemplate(${index})">X</button>
+                </div>
+            `;
+            templatesList.appendChild(item);
+        });
+    }
+    
+    function showFeedback(message, color = "green") {
+        feedback.style.display = 'block';
+        feedback.textContent = message;
+        feedback.style.backgroundColor = color;
+        setTimeout(() => {
+            feedback.style.display = 'none';
+        }, 3000);
+    }
+
+    // Fungsi Salin (menggunakan Clipboard API)
+    function copyText(encodedText) {
+        const text = decodeURIComponent(encodedText);
+        navigator.clipboard.writeText(text).then(() => {
+            showFeedback("Teks berjaya disalin!");
+        }).catch(err => {
+            console.error('Gagal menyalin:", err);
+            showFeedback("Gagal menyalin teks. Sila cuba lagi.", "red");
+        });
+    }
+
+    // Fungsi Hantar WhatsApp
+    function sendWhatsApp(encodedText) {
+        const customerNumber = phoneInput.value.trim();
+        const senderNumber = senderSelector.value.trim(); // Dapatkan nombor pengirim yang dipilih
+        
+        if (customerNumber === "") {
+            showFeedback("Sila masukkan nombor telefon pelanggan.", "red");
+            return;
+        }
+        
+        // WhatsApp sentiasa buka chat dengan nombor yang ada dalam URL (iaitu customerNumber)
+        const text = decodeURIComponent(encodedText);
+        
+        const waUrl = `https://wa.me/${customerNumber}?text=${encodeURIComponent(text)}`;
+        
+        window.open(waUrl, '_blank');
+        showFeedback("Membuka WhatsApp...");
+    }
+
+    // Muatkan templat dan senarai pengirim apabila page dimuatkan
+    document.addEventListener('DOMContentLoaded', () => {
+         renderTemplates();
+         renderSenders(); 
+    });
+</script>
 </body>
 </html>
+
