@@ -15,7 +15,7 @@
         h2 { color: #128C7E; margin-bottom: 15px; border-bottom: 2px solid #128C7E; padding-bottom: 5px; font-size: 18px; }
         
         /* Input & Button Styling */
-        input[type="text"], textarea { 
+        input[type="text"], textarea, select { /* Tambah select di sini */
             width: 100%; 
             padding: 10px; 
             margin-bottom: 10px;
@@ -86,6 +86,14 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+        
+        /* MULTI SENDER SECTION */
+        .sender-section {
+            background: #e9e9e9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -100,15 +108,26 @@
 
         <div style="margin-bottom: 20px;">
             <h2>📞 Nombor Pelanggan</h2>
-            <input type="text" id="phoneNumber" placeholder="Masukkan nombor WA (cth: 60123456789)">
-            <p style="font-size: 12px; color: #888;">*Pastikan bermula dengan kod negara (60) tanpa simbol (+).</p>
+            <input type="text" id="phoneNumber" placeholder="Masukkan nombor WA pelanggan (cth: 60123456789)">
+            <p style="font-size: 12px; color: #888;">*Ini adalah nombor yang akan menerima mesej.</p>
         </div>
+        
+        <div class="sender-section">
+            <h2>👤 Pilih Nombor Pengirim Saya</h2>
+            <select id="senderSelector"></select>
+            
+            <p style="margin-top: 10px; font-size: 12px; color: #888;">*Jika nombor pelanggan adalah anda, pilih nombor anda di sini.</p>
+            
+            <input type="text" id="newSenderName" placeholder="Nama (cth: Zaid Mobile)" style="width: 48%; display: inline-block;">
+            <input type="text" id="newSenderNumber" placeholder="Nombor (cth: 60189675443)" style="width: 48%; display: inline-block;">
+            <button class="btn btn-save" onclick="saveSender()">Tambah Nombor Pengirim</button>
+        </div>
+
 
         <div style="margin-bottom: 30px;">
             <h2>💬 Templat Saya</h2>
             <div id="templatesList">
-                <p style="color: #888;">Tiada templat ditemui. Sila tambah di bawah.</p>
-            </div>
+                </div>
         </div>
         
         <div style="background: #e9e9e9; padding: 15px; border-radius: 8px;">
@@ -125,12 +144,15 @@
         const phoneInput = document.getElementById('phoneNumber');
         const templatesList = document.getElementById('templatesList');
         const feedback = document.getElementById('feedback');
+        const senderSelector = document.getElementById('senderSelector');
         
-        // KRITIKAL PWA INSTALL PROMPT VARIABLES
+        // PWA INSTALL PROMPT VARIABLES
         let deferredPrompt; 
         const installBtnContainer = document.getElementById('installButtonContainer');
 
-        // --- PWA INSTALL PROMPT LOGIC ---
+        // =======================================================
+        // PWA INSTALL LOGIC
+        // =======================================================
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -154,12 +176,14 @@
                         showFeedback("Pemasangan dibatalkan.", "red");
                     }
                     deferredPrompt = null;
-                    installBtnContainer.style.display = 'none'; // Sembunyikan selepas digunakan
+                    installBtnContainer.style.display = 'none'; 
                 });
             }
         }
 
-        // --- 1. LOCAL STORAGE FUNCTIONS ---
+        // =======================================================
+        // LOCAL STORAGE & TEMPLATE FUNCTIONS
+        // =======================================================
         
         function getTemplates() {
             const templatesJson = localStorage.getItem('wa_snippets');
@@ -170,8 +194,6 @@
             localStorage.setItem('wa_snippets', JSON.stringify(templates));
             renderTemplates();
         }
-
-        // --- 2. TEMPLATE MANAGEMENT ---
         
         function saveTemplate() {
             const text = document.getElementById('newTemplateText').value.trim();
@@ -195,8 +217,64 @@
                 showFeedback("Templat dipadam.");
             }
         }
+
+        // =======================================================
+        // MULTI SENDER LOGIC (BARU)
+        // =======================================================
         
-        // --- 3. UI RENDERING ---
+        function getSenders() {
+            const sendersJson = localStorage.getItem('wa_senders');
+            // Jika tiada, pulangkan array default untuk pengguna mudah faham
+            return sendersJson ? JSON.parse(sendersJson) : [{name: 'Pilih Nombor Pengirim', number: ''}];
+        }
+
+        function saveSenders(senders) {
+            localStorage.setItem('wa_senders', JSON.stringify(senders));
+            renderSenders();
+        }
+
+        function saveSender() {
+            const name = document.getElementById('newSenderName').value.trim();
+            const number = document.getElementById('newSenderNumber').value.trim();
+            
+            if (name === "" || number === "") {
+                showFeedback("Sila masukkan Nama dan Nombor Pengirim.", "red");
+                return;
+            }
+
+            const senders = getSenders();
+            senders.push({ name: name, number: number });
+            saveSenders(senders);
+            
+            document.getElementById('newSenderName').value = '';
+            document.getElementById('newSenderNumber').value = '';
+            showFeedback(`Nombor ${name} berjaya ditambah!`);
+        }
+
+        function renderSenders() {
+            const senders = getSenders();
+            senderSelector.innerHTML = '';
+            
+            // Tambah pilihan default
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '--- Pilih Nombor ---';
+            senderSelector.appendChild(defaultOption);
+
+            senders.forEach(sender => {
+                if (sender.number !== '') {
+                    const option = document.createElement('option');
+                    option.value = sender.number;
+                    option.textContent = `${sender.name} (${sender.number})`;
+                    senderSelector.appendChild(option);
+                }
+            });
+        }
+
+
+        // =======================================================
+        // UI RENDERING & ACTION FUNCTIONS
+        // =======================================================
 
         function renderTemplates() {
             const templates = getTemplates();
@@ -224,8 +302,6 @@
             });
         }
         
-        // --- 4. ACTION FUNCTIONS ---
-
         function showFeedback(message, color = "green") {
             feedback.style.display = 'block';
             feedback.textContent = message;
@@ -248,23 +324,32 @@
 
         // Fungsi Hantar WhatsApp
         function sendWhatsApp(encodedText) {
-            const phoneNumber = phoneInput.value.trim();
-            if (phoneNumber === "") {
-                showFeedback("Sila masukkan nombor telefon WA di atas.", "red");
+            const customerNumber = phoneInput.value.trim();
+            const senderNumber = senderSelector.value.trim(); // Dapatkan nombor pengirim yang dipilih
+            
+            if (customerNumber === "") {
+                showFeedback("Sila masukkan nombor telefon pelanggan.", "red");
                 return;
             }
-
+            
+            // Logik: Guna nombor pengirim yang dipilih HANYA jika nombor pelanggan kosong
+            // PENTING: Untuk wa.me, ia sentiasa BUKA CHAT DENGAN NOMBOR YANG DISEBUT DALAM URL.
+            // Oleh itu, kita hanya buka chat dengan customerNumber. 
+            // Nombor senderNumber hanya digunakan jika anda mahu logik yang berbeza.
+            
             const text = decodeURIComponent(encodedText);
             
-            // Format URL wa.me: Guna encodeURIComponent untuk memastikan teks dimasukkan dengan betul
-            const waUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(text)}`;
+            const waUrl = `https://wa.me/${customerNumber}?text=${encodeURIComponent(text)}`;
             
             window.open(waUrl, '_blank');
             showFeedback("Membuka WhatsApp...");
         }
 
-        // Muatkan templat apabila page dimuatkan
-        document.addEventListener('DOMContentLoaded', renderTemplates);
+        // Muatkan templat dan senarai pengirim apabila page dimuatkan
+        document.addEventListener('DOMContentLoaded', () => {
+             renderTemplates();
+             renderSenders(); // BARU: Muatkan senarai pengirim
+        });
     </script>
 </body>
 </html>
