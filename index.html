@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WA Snippet Sender</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#128C7E"/> 
+    
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f0; padding: 15px; }
+        .container { max-width: 600px; margin: auto; }
+        h1 { color: #128C7E; text-align: center; margin-bottom: 25px; }
+        h2 { color: #128C7E; margin-bottom: 15px; border-bottom: 2px solid #128C7E; padding-bottom: 5px; font-size: 18px; }
+        
+        /* Input & Button Styling */
+        input[type="text"], textarea { 
+            width: 100%; 
+            padding: 10px; 
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 5px;
+            transition: background 0.3s;
+        }
+        
+        .btn-whatsapp { background-color: #25d366; color: white; }
+        .btn-whatsapp:hover { background-color: #128C7E; }
+        
+        .btn-copy { background-color: #f0f0f0; color: #333; border: 1px solid #ccc; }
+        .btn-copy:hover { background-color: #ddd; }
+        
+        .btn-save { background-color: #007bff; color: white; }
+        .btn-save:hover { background-color: #0056b3; }
+        
+        /* Template List Styling */
+        .template-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .template-text { 
+            flex-grow: 1; 
+            font-size: 14px; 
+            margin-right: 15px; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .template-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        /* Feedback Message */
+        #feedback {
+            background: #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* PWA Install Prompt Button */
+        #installButtonContainer {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #FFD700;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WA Sender: Automasi Mesej</h1>
+
+        <div id="installButtonContainer" style="display: none;">
+            <button class="btn btn-save" onclick="installApp()" style="width: 100%; padding: 15px 30px; font-size: 16px;">
+                ➕ PASANG APP KE SKRIN UTAMA
+            </button>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h2>📞 Nombor Pelanggan</h2>
+            <input type="text" id="phoneNumber" placeholder="Masukkan nombor WA (cth: 60123456789)">
+            <p style="font-size: 12px; color: #888;">*Pastikan bermula dengan kod negara (60) tanpa simbol (+).</p>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+            <h2>💬 Templat Saya</h2>
+            <div id="templatesList">
+                <p style="color: #888;">Tiada templat ditemui. Sila tambah di bawah.</p>
+            </div>
+        </div>
+        
+        <div style="background: #e9e9e9; padding: 15px; border-radius: 8px;">
+            <h2>➕ Tambah Templat Baru</h2>
+            <textarea id="newTemplateText" rows="3" placeholder="Teks templat baru (Cth: Maklumat akaun bank saya adalah...)"></textarea>
+            <button class="btn btn-save" onclick="saveTemplate()">Simpan Templat</button>
+        </div>
+
+        <div id="feedback"></div>
+
+    </div>
+
+    <script>
+        const phoneInput = document.getElementById('phoneNumber');
+        const templatesList = document.getElementById('templatesList');
+        const feedback = document.getElementById('feedback');
+        
+        // KRITIKAL PWA INSTALL PROMPT VARIABLES
+        let deferredPrompt; 
+        const installBtnContainer = document.getElementById('installButtonContainer');
+
+        // --- PWA INSTALL PROMPT LOGIC ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallButton(); 
+        });
+
+        function showInstallButton() {
+            if (installBtnContainer && deferredPrompt) {
+                installBtnContainer.style.display = 'block';
+            }
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showFeedback("Aplikasi sedang dipasang...", "green");
+                    } else {
+                        showFeedback("Pemasangan dibatalkan.", "red");
+                    }
+                    deferredPrompt = null;
+                    installBtnContainer.style.display = 'none'; // Sembunyikan selepas digunakan
+                });
+            }
+        }
+
+        // --- 1. LOCAL STORAGE FUNCTIONS ---
+        
+        function getTemplates() {
+            const templatesJson = localStorage.getItem('wa_snippets');
+            return templatesJson ? JSON.parse(templatesJson) : [];
+        }
+
+        function saveTemplates(templates) {
+            localStorage.setItem('wa_snippets', JSON.stringify(templates));
+            renderTemplates();
+        }
+
+        // --- 2. TEMPLATE MANAGEMENT ---
+        
+        function saveTemplate() {
+            const text = document.getElementById('newTemplateText').value.trim();
+            if (text === "") {
+                showFeedback("Sila masukkan teks templat.", "red");
+                return;
+            }
+            
+            const templates = getTemplates();
+            templates.push(text);
+            saveTemplates(templates);
+            document.getElementById('newTemplateText').value = '';
+            showFeedback("Templat berjaya disimpan!");
+        }
+
+        function deleteTemplate(index) {
+            if (confirm("Adakah anda pasti mahu padam templat ini?")) {
+                const templates = getTemplates();
+                templates.splice(index, 1);
+                saveTemplates(templates);
+                showFeedback("Templat dipadam.");
+            }
+        }
+        
+        // --- 3. UI RENDERING ---
+
+        function renderTemplates() {
+            const templates = getTemplates();
+            templatesList.innerHTML = '';
+            
+            if (templates.length === 0) {
+                templatesList.innerHTML = '<p style="color: #888; text-align: center;">Tiada templat ditemui.</p>';
+                return;
+            }
+
+            templates.forEach((text, index) => {
+                const item = document.createElement('div');
+                item.className = 'template-item';
+                
+                const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
+                item.innerHTML = `
+                    <div class="template-text" title="${text}">${displayText}</div>
+                    <div class="template-actions">
+                        <button class="btn btn-copy" onclick="copyText('${encodeURIComponent(text)}')">Copy</button>
+                        <button class="btn btn-whatsapp" onclick="sendWhatsApp('${encodeURIComponent(text)}')">WA</button>
+                        <button class="btn" style="background: #dc3545; color: white;" onclick="deleteTemplate(${index})">X</button>
+                    </div>
+                `;
+                templatesList.appendChild(item);
+            });
+        }
+        
+        // --- 4. ACTION FUNCTIONS ---
+
+        function showFeedback(message, color = "green") {
+            feedback.style.display = 'block';
+            feedback.textContent = message;
+            feedback.style.backgroundColor = color;
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 3000);
+        }
+
+        // Fungsi Salin (menggunakan Clipboard API)
+        function copyText(encodedText) {
+            const text = decodeURIComponent(encodedText);
+            navigator.clipboard.writeText(text).then(() => {
+                showFeedback("Teks berjaya disalin!");
+            }).catch(err => {
+                console.error('Gagal menyalin:", err);
+                showFeedback("Gagal menyalin teks. Sila cuba lagi.", "red");
+            });
+        }
+
+        // Fungsi Hantar WhatsApp
+        function sendWhatsApp(encodedText) {
+            const phoneNumber = phoneInput.value.trim();
+            if (phoneNumber === "") {
+                showFeedback("Sila masukkan nombor telefon WA di atas.", "red");
+                return;
+            }
+
+            const text = decodeURIComponent(encodedText);
+            
+            // Format URL wa.me: Guna encodeURIComponent untuk memastikan teks dimasukkan dengan betul
+            const waUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(text)}`;
+            
+            window.open(waUrl, '_blank');
+            showFeedback("Membuka WhatsApp...");
+        }
+
+        // Muatkan templat apabila page dimuatkan
+        document.addEventListener('DOMContentLoaded', renderTemplates);
+    </script>
+</body>
+</html>
